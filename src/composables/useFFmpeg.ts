@@ -1,23 +1,15 @@
 import { ref, shallowRef } from "vue";
 import type { FFmpeg } from "@ffmpeg/ffmpeg";
 
-export type QualityPreset = "low" | "medium" | "high" | "original";
-
 export interface ConversionOptions {
   fps?: number;
-  quality?: QualityPreset;
   loop?: number;
 }
 
-const QUALITY_SETTINGS: Record<
-  QualityPreset,
-  { width: number; colors: number; fps: number }
-> = {
-  low: { width: 320, colors: 64, fps: 10 },
-  medium: { width: 480, colors: 128, fps: 12 },
-  high: { width: 720, colors: 256, fps: 15 },
-  original: { width: 1280, colors: 256, fps: 12 }, // Max 1280px to avoid OOM in browser
-};
+// Max 1280px to avoid OOM in browser
+const DEFAULT_WIDTH = 1280;
+const DEFAULT_COLORS = 256;
+const DEFAULT_FPS = 12;
 
 export interface ConversionResult {
   blob: Blob;
@@ -109,10 +101,7 @@ export function useFFmpeg() {
     file: File,
     options: ConversionOptions = {}
   ): Promise<ConversionResult> {
-    const { quality = "high", fps: customFps, loop = 0 } = options;
-    const settings = QUALITY_SETTINGS[quality];
-    const fps = customFps ?? settings.fps;
-    const { width, colors } = settings;
+    const { fps = DEFAULT_FPS, loop = 0 } = options;
 
     error.value = null;
     progress.value = 0;
@@ -134,7 +123,7 @@ export function useFFmpeg() {
       await instance.writeFile(inputName, await fetchFile(file));
 
       // Build filter with scale - always scale to prevent OOM on large videos
-      const vf = `fps=${fps},scale=${width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=${colors}[p];[s1][p]paletteuse=dither=floyd_steinberg`;
+      const vf = `fps=${fps},scale=${DEFAULT_WIDTH}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=${DEFAULT_COLORS}[p];[s1][p]paletteuse=dither=floyd_steinberg`;
 
       await instance.exec([
         "-i",
