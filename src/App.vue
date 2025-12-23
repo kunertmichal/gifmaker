@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from "vue";
-import { useFFmpeg, type ConversionResult } from "./composables/useFFmpeg";
+import {
+  useFFmpeg,
+  type ConversionResult,
+  type QualityPreset,
+} from "./composables/useFFmpeg";
 
 const {
   isLoading,
@@ -15,6 +19,15 @@ const selectedFile = ref<File | null>(null);
 const isDragOver = ref(false);
 const result = ref<ConversionResult | null>(null);
 const toast = ref<{ message: string; type: "success" | "error" } | null>(null);
+const selectedQuality = ref<QualityPreset>("high");
+
+const qualityOptions: { value: QualityPreset; label: string; desc: string }[] =
+  [
+    { value: "low", label: "Niska", desc: "320px • mały plik" },
+    { value: "medium", label: "Średnia", desc: "480px • balans" },
+    { value: "high", label: "Wysoka", desc: "720px • dobra jakość" },
+    { value: "original", label: "Max", desc: "1280px • duży plik" },
+  ];
 
 const isProcessing = computed(() => isLoading.value || isConverting.value);
 const canConvert = computed(() => selectedFile.value && !isProcessing.value);
@@ -105,7 +118,9 @@ async function handleConvert() {
   if (!selectedFile.value) return;
 
   try {
-    result.value = await convertToGif(selectedFile.value);
+    result.value = await convertToGif(selectedFile.value, {
+      quality: selectedQuality.value,
+    });
     showToast("Konwersja zakończona pomyślnie!", "success");
   } catch {
     showToast(ffmpegError.value || "Wystąpił błąd podczas konwersji", "error");
@@ -265,6 +280,31 @@ onUnmounted(() => {
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quality Selector -->
+        <div v-if="fileInfo && !result" class="mt-4">
+          <label class="block text-sm text-zinc-400 mb-2">Jakość GIF</label>
+          <div class="grid grid-cols-4 gap-2">
+            <button
+              v-for="option in qualityOptions"
+              :key="option.value"
+              @click="selectedQuality = option.value"
+              :disabled="isProcessing"
+              :class="[
+                'p-3 rounded-xl border text-left transition-all duration-200',
+                selectedQuality === option.value
+                  ? 'border-orange-500 bg-orange-500/10 text-zinc-100'
+                  : 'border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300',
+                isProcessing && 'opacity-50 cursor-not-allowed',
+              ]"
+            >
+              <span class="block text-sm font-medium">{{ option.label }}</span>
+              <span class="block text-xs opacity-70 mt-0.5">{{
+                option.desc
+              }}</span>
             </button>
           </div>
         </div>
